@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Päivystyskalenteri – kevyt MVP vuorojen varaamiseen ja päivystysilmoituksiin.">
+  <title>Päivystyskalenteri · MVP</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="brand login-brand"><span class="brand-mark" aria-hidden="true">+</span><div><strong>Päivystyskalenteri</strong><small>Hyvinvointialue · MVP / demo</small></div></div>
+      <p class="eyebrow">Demo-kirjautuminen</p>
+      <h1>Kirjaudu palveluun</h1>
+      <p class="muted">Valitse demo-käyttäjä jatkaaksesi. Käyttäjätunnukset eivät ole oikea tunnistautuminen.</p>
+      <form id="login-form">
+        <div class="field"><label for="login-user">Käyttäjä</label><select id="login-user" required></select></div>
+        <div class="field"><label for="login-password">Salasana</label><input id="login-password" type="password" autocomplete="current-password" required></div>
+        <p id="login-error" class="login-error" role="alert"></p>
+        <button class="button primary" type="submit">Kirjaudu</button>
+      </form>
+      <div class="demo-credentials"><strong>Demotunnukset</strong><br>lääkäri, mikko tai laura / demo123<br>esihenkilö / demo123</div>
+    </div>
+  </section>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">+</span>
+      <div><strong>Päivystyskalenteri</strong><small>Hyvinvointialue · MVP / demo</small></div>
+    </div>
+    <div class="user-chip"><span id="user-avatar" class="avatar">ML</span><span id="user-details">Minna Laine<br><small>Päivystäjä</small></span><button id="logout" class="button ghost">Vaihda käyttäjää</button></div>
+  </header>
+  <nav class="tabs" aria-label="Päävalikko">
+    <button class="tab active" data-view="calendar">Vuorokalenteri</button>
+    <button class="tab" data-view="notifications">Ilmoitukset <span id="notification-count" class="badge">0</span></button>
+    <button class="tab admin-only" data-view="handler">Käsittelyjono <span id="queue-count" class="badge warning">0</span></button>
+    <button class="tab admin-only" data-view="cancellations">Peruutuspyynnöt <span id="cancellation-count" class="badge warning">0</span></button>
+    <button class="tab admin-only" data-view="day-detail">Päivän tiedot</button>
+    <button class="tab" data-view="audit">Tapahtumaloki</button>
+  </nav>
+  <main class="container">
+    <div class="demo-banner"><strong>DEMO / MVP</strong> Tiedot tallennetaan vain tämän selaimen paikalliseen muistiin. Älä syötä oikeita henkilötietoja.</div>
+
+    <section id="view-calendar" class="view active">
+      <div class="page-heading"><div><p class="eyebrow">Päivystysvuorot</p><h1>Vuorokalenteri</h1><p class="muted">Varaa vapaa vuoro ja täytä vuoron jälkeinen ilmoitus.</p></div><button id="reset-demo" class="button ghost">Palauta demo</button></div>
+      <div class="toolbar"><button id="prev-period" class="icon-button" aria-label="Edellinen jakso">‹</button><h2 id="period-label"></h2><button id="next-period" class="icon-button" aria-label="Seuraava jakso">›</button><button id="today" class="button secondary">Tähän kuukauteen</button><div class="view-toggle" role="group" aria-label="Kalenterinäkymä"><button id="week-view" class="button secondary" type="button">Viikko</button><button id="month-view" class="button secondary" type="button">Kuukausi</button></div></div>
+      <div class="notice calendar-note"><strong>Suunnitteluhorisontti:</strong> päivystäjä voi varata kuluvan kuukauden ja kolme seuraavaa kuukautta. Esihenkilö näkee myös historian ja kaikki vapaat sekä varatut vuorot. Yhdellä päivystäjällä voi olla enintään kaksi varausta kaikissa avoimissa kuukausissa yhteensä.</div>
+      <div class="legend"><span><i class="dot free"></i> Vapaa</span><span><i class="dot booked"></i> Varattu</span><span><i class="dot mine"></i> Oma vuoro</span><span><i class="dot weekend"></i> Viikonloppu / pyhä (demo)</span></div>
+      <div id="calendar-grid" class="calendar-grid" aria-live="polite"></div>
+      <div class="stats"><div><strong id="free-count">0</strong><span>vapaata vuoroa</span></div><div><strong id="my-count">0</strong><span>omaa vuoroa</span></div><div><strong id="pending-count">0</strong><span>täyttämätöntä ilmoitusta</span></div></div>
+    </section>
+
+    <section id="view-notifications" class="view">
+      <div class="page-heading"><div><p class="eyebrow">Vuoron raportointi</p><h1>Päivystysilmoitukset</h1><p class="muted">Täydennä toteutuneet ajat, potilasmäärät ja korvaukset. Peruskorvaus näkyy vain läpinäkyvänä demo-esimerkkinä.</p></div><button id="export-csv" class="button secondary admin-only">Lataa hyväksytyt CSV:nä</button></div>
+      <div id="notification-list" class="notification-list"></div>
+    </section>
+
+    <section id="view-handler" class="view">
+      <div class="page-heading"><div><p class="eyebrow">Käsittelijän näkymä</p><h1>Käsittelyjono</h1><p class="muted">Tarkista lähetetyt päivystysilmoitukset.</p></div></div>
+      <div id="handler-list" class="handler-list"></div>
+    </section>
+
+    <section id="view-cancellations" class="view admin-only">
+      <div class="page-heading"><div><p class="eyebrow">Hallintapaneeli</p><h1>Peruutuspyynnöt</h1><p class="muted">Hyväksyminen vapauttaa vuoron ja siihen liittyvän ilmoitusluonnoksen.</p></div></div>
+      <div id="cancellation-list" class="notification-list"></div>
+    </section>
+
+    <section id="view-audit" class="view">
+      <div class="page-heading"><div><p class="eyebrow">Jäljitettävyys</p><h1>Tapahtumaloki</h1><p class="muted">Kaikki MVP:n toiminnalliset muutokset näkyvät tässä.</p></div></div>
+      <div id="audit-list" class="audit-list"></div>
+    </section>
+
+    <section id="view-day-detail" class="view admin-only">
+      <div class="page-heading"><div><p class="eyebrow">Esihenkilön näkymä</p><h1>Päivän tiedot: <span id="day-detail-title"></span></h1><p class="muted">Päivän vuorot ja varausloki.</p></div><button id="day-detail-back" class="button secondary">Takaisin kalenteriin</button></div>
+      <h2>Vuorot</h2><div id="day-detail-shifts" class="notification-list day-detail-list"></div>
+      <h2 class="day-detail-heading">Varausloki</h2><div id="day-detail-log" class="audit-list"></div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
