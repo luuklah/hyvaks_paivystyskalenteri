@@ -36,21 +36,15 @@
       ids[shift.id] = true;
       shifts.push(shift);
     }
-    var dates = weekDates(0);
-    dates.forEach(function (date, i) {
-      if ([5, 12, 19, 26].indexOf(localDate(date).getDate()) !== -1) return;
-      if (i > 0 && i < 6) addShift({ id: "demo-" + date + "-a", date: date, start: "08:00", end: "16:00", location: "Keski-Suomen päivystys", bookedBy: null, bookedById: null, bookedAt: null });
-      if (i === 2) addShift({ id: "demo-" + date + "-b", date: date, start: "16:00", end: "08:00", location: "Keski-Suomen päivystys", bookedBy: "Mikko Virtanen", bookedById: null, bookedAt: null });
-      if (i === 4) addShift({ id: "demo-" + date + "-b", date: date, start: "16:00", end: "08:00", location: "Keski-Suomen päivystys", bookedBy: "Minna Laine", bookedById: "doctor", bookedAt: null });
-    });
     for (var offset = 0; offset < 4; offset++) {
-      [5, 12, 19, 26].forEach(function (day, index) {
-        var date = isoDate(new Date(monthStart(offset).getFullYear(), monthStart(offset).getMonth(), day));
+      var month = monthStart(offset), daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      for (var day = 1; day <= daysInMonth; day++) {
+        var date = isoDate(new Date(month.getFullYear(), month.getMonth(), day));
         ["00:00|08:00", "08:00|16:00", "16:00|24:00"].forEach(function (slot, slotIndex) {
-          var times = slot.split("|"), owner = slotIndex === 2 && index === 1 ? "Mikko Virtanen" : slotIndex === 2 && index === 2 ? "Minna Laine" : null;
+          var times = slot.split("|"), owner = day === 5 && slotIndex === 2 ? "Mikko Virtanen" : day === 12 && slotIndex === 2 ? "Minna Laine" : null;
           addShift({ id: "demo-" + date + "-" + slotIndex, date: date, start: times[0], end: times[1], location: "Keski-Suomen päivystys", bookedBy: owner, bookedById: owner === "Minna Laine" ? "doctor" : owner === "Mikko Virtanen" ? "doctor2" : null, bookedAt: null });
         });
-      });
+      }
     }
     return { shifts: shifts, notifications: [], bookingLog: [], cancellationRequests: [], audit: [{ at: new Date().toISOString(), text: "Demoaineisto ladattu" }], currentUserId: null, loginAt: null, userLoginAt: {} };
   }
@@ -78,27 +72,34 @@
   }
   function migrateDemoCoverage(data) {
     var migratedShiftIds = {};
-    for (var offset = 0; offset < 4; offset++) [5, 12, 19, 26].forEach(function (day) {
-      var date = isoDate(new Date(monthStart(offset).getFullYear(), monthStart(offset).getMonth(), day));
-      var oldDay = data.shifts.find(function (s) { return s.id === "demo-" + date + "-day"; });
-      var oldNight = data.shifts.find(function (s) { return s.id === "demo-" + date + "-night"; });
-      var oldA = data.shifts.find(function (s) { return s.id === "demo-" + date + "-a"; }), oldB = data.shifts.find(function (s) { return s.id === "demo-" + date + "-b"; });
-      var migrated = [{ source: oldDay || oldA, target: "demo-" + date + "-1" }, { source: oldNight || oldB, target: "demo-" + date + "-2" }];
-      migrated.forEach(function (item) {
-        if (item.source && data.notifications) data.notifications.forEach(function (n) {
-          if (n.shiftId === item.source.id) n.shiftId = item.target;
+    for (var offset = 0; offset < 4; offset++) {
+      var month = monthStart(offset), daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      for (var day = 1; day <= daysInMonth; day++) {
+        var date = isoDate(new Date(month.getFullYear(), month.getMonth(), day));
+        var oldDay = data.shifts.find(function (s) { return s.id === "demo-" + date + "-day"; });
+        var oldNight = data.shifts.find(function (s) { return s.id === "demo-" + date + "-night"; });
+        var oldA = data.shifts.find(function (s) { return s.id === "demo-" + date + "-a"; });
+        var oldB = data.shifts.find(function (s) { return s.id === "demo-" + date + "-b"; });
+        var legacy = [oldDay, oldNight, oldA, oldB].filter(function (s) { return !!s; });
+        legacy.forEach(function (source) {
+          var target = source === oldNight || source === oldB ? "demo-" + date + "-2" : "demo-" + date + "-1";
+          migratedShiftIds[source.id] = target;
+          data.notifications.forEach(function (n) {
+            if (n.shiftId === source.id) n.shiftId = target;
+          });
         });
-      });
-      if (oldDay) migratedShiftIds[oldDay.id] = "demo-" + date + "-1";
-      if (oldA) migratedShiftIds[oldA.id] = "demo-" + date + "-1";
-      if (oldNight) migratedShiftIds[oldNight.id] = "demo-" + date + "-2";
-      if (oldB) migratedShiftIds[oldB.id] = "demo-" + date + "-2";
-      data.shifts = data.shifts.filter(function (s) { return s.id !== "demo-" + date + "-day" && s.id !== "demo-" + date + "-night" && s.id !== "demo-" + date + "-a" && s.id !== "demo-" + date + "-b"; });
-      ["00:00|08:00", "08:00|16:00", "16:00|24:00"].forEach(function (slot, index) {
-        var times = slot.split("|"), existing = data.shifts.find(function (s) { return s.id === "demo-" + date + "-" + index; }), source = index === 1 ? (oldDay || oldA) : index === 2 ? (oldNight || oldB) : null;
-        if (!existing) data.shifts.push({ id: "demo-" + date + "-" + index, date: date, start: times[0], end: times[1], location: "Keski-Suomen päivystys", bookedBy: source ? source.bookedBy : null, bookedById: source ? source.bookedById : null, bookedAt: source ? source.bookedAt : null });
-      });
-    });
+        if (legacy.length) {
+          data.shifts = data.shifts.filter(function (s) { return legacy.indexOf(s) === -1; });
+        }
+        ["00:00|08:00", "08:00|16:00", "16:00|24:00"].forEach(function (slot, index) {
+          var times = slot.split("|"), id = "demo-" + date + "-" + index, existing = data.shifts.find(function (s) { return s.id === id; });
+          if (!existing) {
+            var source = index === 1 ? (oldDay || oldA) : index === 2 ? (oldNight || oldB) : null;
+            data.shifts.push({ id: id, date: date, start: times[0], end: times[1], location: "Keski-Suomen päivystys", bookedBy: source ? source.bookedBy : (day === 5 && index === 2 ? "Mikko Virtanen" : day === 12 && index === 2 ? "Minna Laine" : null), bookedById: source ? source.bookedById : (day === 5 && index === 2 ? "doctor2" : day === 12 && index === 2 ? "doctor" : null), bookedAt: source ? source.bookedAt : null });
+          }
+        });
+      }
+    }
     return migratedShiftIds;
   }
   function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -135,7 +136,7 @@
   function shiftCard(s, user) {
     var mine = user && s.bookedById === user.id, booked = !!s.bookedBy;
     var request = state.cancellationRequests.filter(function (r) { return r.shiftId === s.id && r.doctorId === (user && user.id); }).sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); })[0];
-    var atLimit = user && !isAdmin() && bookedCount(user.id) >= MAX_BOOKED_SHIFTS;
+    var atLimit = user && !isAdmin() && monthKey(localDate(s.date)) === newestOpenMonthKey() && bookedCount(user.id, newestOpenMonthKey()) >= MAX_BOOKED_SHIFTS;
     var canCancel = mine && s.bookedAt && Date.now() - new Date(s.bookedAt).getTime() <= 15 * 60 * 1000;
     var action = !booked && user && !isAdmin() && !atLimit && dateInHorizon(s.date) ? '<button class="button primary book" data-id="' + s.id + '">Varaa vuoro</button>' : "";
     if (!booked && atLimit && user && !isAdmin()) action = '<span class="shift-limit">Kahden vuoron enimmäismäärä täynnä</span>';
@@ -189,7 +190,7 @@
     var user = currentUser(), shift = state.shifts.find(function (s) { return s.id === id; });
     if (!user || isAdmin() || !shift || shift.bookedBy) return;
     if (!dateInHorizon(shift.date)) { showToast("Vuoro ei ole neljän kuukauden varausikkunassa"); return; }
-    if (bookedCount(user.id) >= MAX_BOOKED_SHIFTS) { showToast("Voit varata enintään kaksi vuoroa. Peru ensin yksi varaus."); return; }
+    if (monthKey(localDate(shift.date)) === newestOpenMonthKey() && bookedCount(user.id, newestOpenMonthKey()) >= MAX_BOOKED_SHIFTS) { showToast("Voit varata uusimpaan avoimeen kuukauteen enintään kaksi vuoroa. Peru ensin yksi varaus."); return; }
     shift.bookedBy = user.name; shift.bookedById = user.id; shift.bookedAt = new Date().toISOString();
     bookingLog("varaus", shift, user);
     state.notifications.push({ id: "ilmo-" + Date.now(), shiftId: id, shift: shift.date, start: shift.start, end: shift.end, location: shift.location, ownerId: user.id, ownerName: user.name, createdAt: shift.bookedAt, status: "draft", plannedStart: shift.start, plannedEnd: shift.end, actualStart: "", actualEnd: "", urgentCount: 0, basicCount: 0, triageCount: 0, compensation: "0", crowdClearing: "Ei", extra: "", correctionNote: "" });
@@ -232,7 +233,7 @@
     var target = document.querySelector('.transfer-target[data-id="' + id + '"]');
     var recipient = target && USERS[target.value];
     if (!recipient) return;
-    if (recipient.id !== shift.bookedById && bookedCount(recipient.id) >= MAX_BOOKED_SHIFTS) { showToast("Valitulla päivystäjällä on jo kaksi varausta"); return; }
+    if (recipient.id !== shift.bookedById && monthKey(localDate(shift.date)) === newestOpenMonthKey() && bookedCount(recipient.id, newestOpenMonthKey()) >= MAX_BOOKED_SHIFTS) { showToast("Valitulla päivystäjällä on jo kaksi varausta tässä uusimmassa avoimessa kuukaudessa"); return; }
     var previous = shift.bookedBy, actor = currentUser();
     shift.bookedBy = recipient.name; shift.bookedById = recipient.id; shift.bookedAt = new Date().toISOString();
     state.notifications.forEach(function (n) {
